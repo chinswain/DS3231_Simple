@@ -332,9 +332,14 @@ class DS3231_Simple
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
+    void setEepromAddress (uint8_t deviceAddr){EEPROM_ADDRESS=deviceAddr;}
+    uint8_t getEepromAddress(){return EEPROM_ADDRESS;}
+    void setEepromSize (uint32_t size){EEPROM_BYTES = size;}
+    uint32_t getEepromSize (){return EEPROM_BYTES;}
+    
   protected:
   
-    static const uint8_t      EEPROM_ADDRESS   = 0x57;                          
+    uint8_t      EEPROM_ADDRESS   = 0x57;                          
       // 7 Bit address, the first 4 bits are 1010, the the last 3 bits according to A2, A1 and A0
       // On the common ZS-042 board, this corresponds to (where x is jumper open, and 1 is jumper closed)
       // A0    A1    A2
@@ -346,12 +351,13 @@ class DS3231_Simple
       //  1    0     1    0x52
       //  1    1     1    0x51
                                                                                 
-                                                                                
+/*                                                                                
     static const uint16_t     EEPROM_SIZE_KBIT = 32768;                         // EEPROMs are sized in kilobit
     static const uint8_t      EEPROM_PAGE_SIZE = 32;                            // And have a number of bytes per page
-    static const uint16_t     EEPROM_BYTES     = EEPROM_SIZE_KBIT/8;            
-    static const uint8_t      EEPROM_PAGES     = EEPROM_BYTES/EEPROM_PAGE_SIZE; 
-
+*/
+    uint32_t     EEPROM_BYTES     = 4096; //EEPROM_SIZE_KBIT/8;            
+/*    static const uint8_t      EEPROM_PAGES     = EEPROM_BYTES/EEPROM_PAGE_SIZE; 
+*/
     // EEPROM structure       
     //  The EEPROM is used to store "log entries" which each consist of a 5 byte header and an additional 0 to 7 data bytes.
     //  The Header of each block includes a count of the data bytes and then a binary representation of the timestamp.
@@ -379,6 +385,13 @@ class DS3231_Simple
                                                                                 // "block" to read is found here, this location may be 
                                                                                 // a valid block start byte, or it may be 00000000 in which case
                                                                                 // there are zero bytes to read.
+
+    /** Uses Nak Polling to verify Device is ready for commands, 10ms timeout
+     *  
+     *  @return true if device available
+     */
+     
+    bool i2cReady(uint8_t deviceAddress);    
 
     /** Searches the EEPROM for the next place to store a block, sets eepromWriteAddress
      *  

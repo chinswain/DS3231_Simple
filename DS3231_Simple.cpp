@@ -1,5 +1,8 @@
 #include <DS3231_Simple.h>
 
+#ifdef ARDUINO_ARCH_ESP32
+#define _BV(i) BIT(i)
+#endif
 void DS3231_Simple::begin()
 {  
   Wire.begin();
@@ -90,11 +93,22 @@ int8_t DS3231_Simple::compareTimestamps(const DateTime &A, const DateTime &B)
   return 0;
 }
 
+bool DS3231_Simple::i2cReady(uint8_t deviceAddr)
+{
+bool ready=false;
+uint32_t timeout=millis();
+while(!ready && (millis()-timeout<10)){ // EEprom should complete any write within 5ms
+  Wire.beginTransmission(deviceAddr);
+  ready = Wire.endTransmission() ==0;
+  }
+return ready;
+}
+
 uint8_t DS3231_Simple::formatEEPROM()
 {
   eepromWriteAddress = 0;
   writeBytePagewizeStart();
-  for(uint16_t x = 0; x < EEPROM_BYTES; x++)
+  for(uint32_t x = 0; x < EEPROM_BYTES; x++)
   {
     writeBytePagewize(0);
   }
@@ -108,11 +122,18 @@ uint8_t DS3231_Simple::formatEEPROM()
 uint8_t DS3231_Simple::readEEPROMByte(const uint16_t address)
 {
   uint8_t b = 0;
+  
+  if(!i2cReady(EEPROM_ADDRESS)) return 0; // device did not answer
+  
   Wire.beginTransmission(EEPROM_ADDRESS); // DUMMY WRITE
   Wire.write((uint8_t) ((address>>8) & 0xFF)); 
   Wire.write((uint8_t) ((address) & 0xFF)); 
-  
+
+#ifdef ARDUINO_ARCH_ESP32
+  if(Wire.endTransmission(false)!=7) // Bare Restart queued
+#else
   if(Wire.endTransmission(false)) // Do not send STOP, just restart
+#endif
   {
     return 0;
   }
@@ -163,7 +184,8 @@ uint16_t DS3231_Simple::findEEPROMReadAddress()
 {   
   // This is going to be really memory hungry :-/
   // Anybody care to think of a better way.
-  uint16_t nxtPtr, x      = 0;
+  uint16_t nxtPtr;
+  uint32_t x      = 0;
   
   DateTime currentOldest;
   DateTime compareWith;
@@ -235,6 +257,7 @@ uint8_t DS3231_Simple::makeEEPROMSpace(uint16_t Address, int8_t BytesRequired)
 
 uint8_t DS3231_Simple::writeBytePagewizeStart()
 {
+  if(!i2cReady(EEPROM_ADDRESS)) return 0; // device did not answer
   Wire.beginTransmission(EEPROM_ADDRESS);
   Wire.write((eepromWriteAddress >> 8) & 0xFF);
   Wire.write(eepromWriteAddress & 0xFF);
@@ -269,8 +292,11 @@ uint8_t DS3231_Simple::writeBytePagewizeEnd()
     return 0;
   }
   
+/** Poll at the beginning, don't waste time after it is done
   // Poll for write to complete
+  
   while(!Wire.requestFrom(EEPROM_ADDRESS,(uint8_t) 1));  
+*/
   return 1;
 }
 
@@ -442,6 +468,7 @@ DS3231_Simple::DateTime DS3231_Simple::read()
 
 uint8_t DS3231_Simple::write(const DateTime &currentDate)
 {
+ 
   Wire.beginTransmission(RTC_ADDRESS);
   Wire.write(0x00); // Start address of data
   Wire.write(bin2bcd(currentDate.Second));

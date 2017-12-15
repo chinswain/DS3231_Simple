@@ -1,16 +1,22 @@
 #include <DS3231_Simple.h>
 
 DS3231_Simple Clock;
+#ifdef ARDUINO_ARCH_ESP32
+  #define SAMPLEPIN A5
+#else
+  #define SAMPLEPIN A0
+#endif
 
 void setup() {
   
   
-  Serial.begin(9600);  
+  Serial.begin(115200);  
   Serial.println();
   
   Clock.begin();
     
   // Erase the contents of the EEPROM
+  Clock.setEepromAddress(0x50);
   Clock.formatEEPROM();
   
   // First we will disable any existing alarms
@@ -23,15 +29,22 @@ void setup() {
   
 }
 
+static uint32_t timeout=0;
 void loop() 
 { 
+/*
   if(Clock.checkAlarms())
   {
     // Time to log a data point
-    Clock.writeLog(analogRead(A1));
+    Clock.writeLog(analogRead(SAMPLEPIN));
     Serial.print('.');
   }
-  
+*/
+  if(millis()-timeout>1000){ //every second do a reading
+    Clock.writeLog(analogRead(SAMPLEPIN));
+    timeout=millis();
+    }
+    
   if(Serial.available())
   {
     while(Serial.available()) Serial.read();
@@ -53,7 +66,9 @@ void dumpLog()
     if(x == 0)
     {
       Serial.println();
-      Serial.println(F("Date,analogRead(A1)"));
+      Serial.print(F("Date,analogRead("));
+      Serial.print(SAMPLEPIN,DEC);
+      Serial.println(F(")"));
     }
     
     x++;
